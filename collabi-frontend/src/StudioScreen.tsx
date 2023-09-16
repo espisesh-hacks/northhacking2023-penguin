@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { StyleSheet, View, useWindowDimensions, Image, ScrollView } from 'react-native';
+import { StyleSheet, View, useWindowDimensions, Image, ScrollView, FlatList } from 'react-native';
 import { TextInput, Button, Dialog, Portal, Text, ActivityIndicator} from 'react-native-paper';
 
 // image assets expo
@@ -65,6 +65,12 @@ export function StudioScreen() {
                   setSavedPromptList(msg.payload.msg);
                   setLoading(false);
                 } break;
+                case "save-prompt": {
+                  console.log(msg.payload.msg);
+                  setTimeout(() => {
+                    setLoading(false);
+                  }, 500);
+                } break;
               } // forAction switch ----------------------------------
             } break; // result payload ----------------------------------
             case "broadcast": {
@@ -128,7 +134,7 @@ export function StudioScreen() {
         }
       }}>
         <View style={{height: "100%", width: "25%"}}>
-          <View style={{...styles.container}}>
+          <View style={{...styles.container, width: "100%"}}>
             <Button style={{
               width: "90%",
               margin: 10,
@@ -142,14 +148,51 @@ export function StudioScreen() {
               Refresh Prompt List
             </Button>
             <Text>Prompt List</Text>
+            <FlatList 
+              data={savedPromptList}
+              style={{
+                width: "100%",
+                height: "100%",
+              }}
+              renderItem={({item}) => {
+                return (
+                  <View style={{
+                    flexDirection: "row",
+                    width: "100%",
+                    margin: 10,
+                    borderWidth: 1,
+                  }}>
+                    <Text style={{
+                      fontSize: 20,
+                      fontWeight: "bold",
+                    }}>{item.prompt}</Text>
+                    <Button style={{
+                      justifyContent: "center",
+                      margin: 10,
+                      alignContent: "center",
+                      height: "50%",
+                    }} mode="outlined" onPress={() => {
+                      ws.current?.send(JSON.stringify({
+                        action: "",
+                        payload: {
+                          uuid: item.uuid,
+                        }
+                      }));
+                    }} icon={"send"}>
+                      Delete
+                    </Button>
+                  </View>
+                );
+              }} ></FlatList>
           </View>
         </View>
         <View style={{...styles.container, height: "100%"}}>
           <View style={{
             flexDirection: "row",
-            justifyContent: "center",
-            alignContent: "center",
-            width: "100%",
+            width: "90%",
+            height: "15%",
+            margin: 20,
+            marginLeft: 150
           }}>
             <TextInput style={{
               width: "50%",
@@ -175,27 +218,52 @@ export function StudioScreen() {
                     lastChangeWasRemote: false,
                   }); 
               }}
-              multiline={true}
+              //multiline={true}
               autoComplete="off"
             />  
-            <Button style={{
-              width: "25%",
-              height: "50%",
-              justifyContent: "center",
-              margin: 10,
-              alignContent: "center",
-            }} mode="contained" onPress={() => {
-              ws.current?.send(JSON.stringify({
-                action: "ai-complete",
-                payload: {
-                  model: "gpt-3.5-turbo",
-                  prompt: promptBoxText.text,
-                }
-              }));
-              setLoading(true);
-            }} icon={"send"}>
-              Send
-            </Button>
+            <View style={{
+              flex: 1,
+              flexDirection: "column",
+              width: "100%",
+            }}>
+              <Button style={{
+                width: "50%",
+                height: "50%",
+                justifyContent: "center",
+                margin: 10,
+                alignContent: "center",
+              }} mode="contained" onPress={() => {
+                ws.current?.send(JSON.stringify({
+                  action: "ai-complete",
+                  payload: {
+                    model: "gpt-3.5-turbo",
+                    prompt: promptBoxText.text,
+                  }
+                }));
+                setLoading(true);
+              }} icon={"send"}>
+                Send
+              </Button>
+
+              <Button style={{
+                width: "50%",
+                height: "50%",
+                justifyContent: "center",
+                alignContent: "center",
+                marginLeft: 10
+              }} mode="contained" onPress={() => {
+                ws.current?.send(JSON.stringify({
+                  action: "save-prompt",
+                  payload: {
+                    model: "gpt-3.5-turbo",
+                    prompt: promptBoxText.text,
+                  }
+                }));
+                setLoading(true);
+              }} icon={"floppy"}>
+                Save
+              </Button>
+            </View>
     
           </View>
     
