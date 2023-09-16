@@ -20,7 +20,7 @@ app.post('/webhook/:id', async (req, res) => {
   try {
     const sqlres = await client.query('SELECT * FROM saved_prompts WHERE uuid = $1', [req.params.id]);
     console.log(req.params.id);
-    console.log(req.body.commits);
+    console.log(req.body.commits[0].modified);
     res.send(sqlres.rows[0].prompt);
   } catch(err) {
     console.log("Postgres error:", err);
