@@ -12,14 +12,15 @@ import express from 'express'
 const app = express()
 const port = 3001
 // Webhook server for Github
-
+app.use(express.json());
 app.get('/', (req, res) => {
   res.send('Hello World!');
 })
-app.get('/webhook/:id', async (req, res) => {
+app.post('/webhook/:id', async (req, res) => {
   try {
     const sqlres = await client.query('SELECT * FROM saved_prompts WHERE uuid = $1', [req.params.id]);
     console.log(req.params.id);
+    console.log(req.body);
     res.send(sqlres.rows[0].prompt);
   } catch(err) {
     console.log("Postgres error:", err);
