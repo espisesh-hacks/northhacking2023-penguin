@@ -8,6 +8,19 @@ import { APIResource } from 'openai/core.mjs';
 const client = new Client()
 await client.connect()
 
+import express from 'express'
+const app = express()
+const port = 3001
+// Webhook server for Github
+
+app.get('/', (req, res) => {
+  res.send('Hello World!')
+})
+
+app.listen(port, () => {
+  console.log(`Example app listening on port ${port}`)
+})
+
 try {
   const res = await client.query('SELECT * FROM credentials WHERE username = \'aron\'');
   console.log(res.rows);
@@ -95,6 +108,8 @@ function getRooms() { //Returns a list of all active rooms
   return rooms;
 }
 
+// Main Function
+
 Bun.serve({
   fetch(req, server) {
     // upgrade the request to a WebSocket
@@ -106,7 +121,15 @@ Bun.serve({
       console.log("connection:", req.headers.get("host"));
       return; // do not return a Response
     }
-    return new Response("Websockets only", { status: 500 });
+    const url = new URL(req.url);
+    switch (url.pathname) {
+      case "/test": {
+        return new Response("hello");
+      }
+      default: {
+        return new Response("404 not found :(", { status: 404 });
+      }
+    }
   },
   websocket: {
      async message(ws: ServerWebSocket<WSServerData>,message) {
