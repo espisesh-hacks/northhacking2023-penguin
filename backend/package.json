@@ -9,8 +9,10 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@types/pg": "^8.10.2",
     "@types/uuid": "^9.0.4",
     "openai": "^4.7.1",
+    "pg": "^8.11.3",
     "uuid": "^9.0.1"
   }
 }

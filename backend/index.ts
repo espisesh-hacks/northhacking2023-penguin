@@ -1,16 +1,24 @@
 #!/usr/bin/env bun
-import { ServerWebSocket } from 'bun';
-import { stat } from 'fs';
+import { ServerWebSocket, password } from 'bun';
 import { v4 as uuidv4 } from 'uuid';
 import OpenAI from 'openai';
 const openai = new OpenAI({});
+import { Client } from 'pg';
+import { APIResource } from 'openai/core.mjs';
+const client = new Client()
+await client.connect()
 
-
-interface WSMessage {
-  action: string,
-  payload: WSUserInfo & WSResult & WSBroadcast & WSAiComplete
+try {
+  const res = await client.query('SELECT * FROM credentials WHERE username = \'aron\'');
+  console.log(res.rows);
+} catch(err) {
+  console.log("Postgres error:", err);
 }
-interface WSUserInfo {
+interface WSMessage { // all Websocket messages use the interface WSMessage
+  action: string,
+  payload: WSUserInfo & WSResult & WSBroadcast & WSAiComplete & WSSavePrompt & WSDeletePrompt
+}
+interface WSUserInfo { // Determined on login, used to create Map userState
   username: string,
   password: string,
   room: string
@@ -21,24 +29,32 @@ interface WSResult { // action: "result"
   result: boolean, 
   msg: any,
 }
-interface WSServerData {
+interface WSServerData { // for ServerWebSocket
   uuid: string,
 }
-interface WSBroadcast {
+interface WSBroadcast { // action: "broadcast"
   data: string,
 }
 interface WSAiComplete { // action: "ai-complete"
   model: string,
   prompt: string,
 }
-
-interface UserState {
+interface WSSavePrompt { // action: "save-prompt"
+  prompt: string,
+  model: string,
+}
+interface WSDeletePrompt { // action "delete-prompt"
+  uuid: string,
+}
+interface UserState { // used in userState Map
   username: string,
   room: string,
   ws: ServerWebSocket<WSServerData>,
 }
 
-let userState = new Map<string, UserState>;
+let userState = new Map<string, UserState>; // Map of UUID to user information
+let credentials = new Map<string, string>; // Usernames and passwords
+
 
 function userLoggedIn(username: string) { // Returns userState if user exists
   for (let [key, value] of userState) {
@@ -48,7 +64,7 @@ function userLoggedIn(username: string) { // Returns userState if user exists
   }
 }
 
-function getRoomUsers(room: string) {
+function getRoomUsers(room: string) { // returns an array of userStates in the same room
   let users: UserState[] = [];
   for (let [key, value] of userState) {
     if (value.room === room) {
@@ -59,10 +75,11 @@ function getRoomUsers(room: string) {
   return users;
 }
 
+// Function redirects data from one user in a room, to all the others
 function roomBroadcast(room: string, data: WSMessage, username: string) {
   let users = getRoomUsers(room);
   for (let user of users) {
-    if (user.username !== username) {
+    if (user.username !== username) { // Does not send to sender
       user.ws.send(JSON.stringify(data));
     }
   }
@@ -97,7 +114,17 @@ Bun.serve({
       switch (msg.action) {
         case "login": {
           const userinfo: WSUserInfo = msg.payload;  
-          if ((userinfo.username === "sesh" && userinfo.password === "password" && userinfo.room) || (userinfo.username === "aron" && userinfo.password === "password1")) {
+          let pass;
+          try {
+            const res = await client.query('SELECT * FROM credentials WHERE username = $1', [userinfo.username]);
+            pass = res.rows[0].password;
+            console.log(userinfo.username, pass);
+            console.log('hi')
+          } catch(err) {
+            console.log("Postgres error:", err);
+          }
+          
+          if ((userinfo.password === pass)) {
             let existingUser = userLoggedIn(userinfo.username);
             if (existingUser) {
               existingUser.ws.send(JSON.stringify({
@@ -141,7 +168,7 @@ Bun.serve({
           const state = userState.get(ws.data.uuid);
           if (state) { // if user is logged in
             roomBroadcast(state.room, msg, state.username);
-            console.log(msg.payload);
+            // console.log(msg.payload);
           }
         } break;
         case "ai-complete": {
@@ -151,12 +178,78 @@ Bun.serve({
             model: payload.model,
           });
           console.log("ew AI", completion)
-          ws.send(JSON.stringify({
+          console.log("test", completion.choices[0].message.content) // Print response directly
+          let airesult = {
             action: "result",
             payload: {
               forAction: "ai-complete",
               result: true,
-              msg: completion
+              msg: completion.choices[0].message.content,
+            } as WSResult
+          } as WSMessage
+          ws.send(JSON.stringify(airesult));
+          roomBroadcast(userState.get(ws.data.uuid)?.room!, airesult, userState.get(ws.data.uuid)?.username!);
+          // Add to Postgres list
+          try {
+            const res = await client.query('INSERT INTO prompts(prompt, model, room) VALUES($1, $2, $3)', [payload.prompt, payload.model, userState.get(ws.data.uuid)?.room]);
+            console.log('adding ', payload.prompt, ' to', userState.get(ws.data.uuid)?.room);
+          } catch(err) {
+            console.log("Postgres error:", err);
+          }
+        } break;
+        case "save-prompt": { // takes in a Prompt and Model, then returns the associated Database UUID
+          const prompt = msg.payload.prompt;
+          const model = msg.payload.model;
+          const uuid = uuidv4();
+          try {
+            const res = await client.query('INSERT INTO saved_prompt(prompt, model, room, uuid) VALUES($1, $2, $3, $4)', [prompt, model, userState.get(ws.data.uuid)?.room, uuid]);
+            console.log('adding ', prompt, ' to', userState.get(ws.data.uuid)?.room);
+          } catch(err) {
+            console.log("Postgres error:", err);
+          }
+          ws.send(JSON.stringify({
+            action: "result",
+            payload: {
+              forAction: "save-prompt",
+              result: true,
+              msg: uuid
+            } as WSResult
+          } as WSMessage))
+        } break;
+        case "delete-prompt": {
+          const uuid = msg.payload;
+        } break;
+        case "get-saved-prompts": {
+          let res;
+          try {
+            res = await client.query('SELECT * FROM saved_prompts WHERE room = $1', [userState.get(ws.data.uuid)?.room]);
+            console.log("sending saved-prompt list: ", res);
+          } catch(err) {
+            console.log("Postgres error:", err);
+          }
+          ws.send(JSON.stringify({
+            action: "result",
+            payload: {
+              forAction: "get-saved-prompts",
+              result: true,
+              msg: res?.rows
+            } as WSResult
+          } as WSMessage))
+        } break;
+        case "get-prompts": {
+          let res;
+          try {
+            res = await client.query('SELECT * FROM prompts WHERE room = $1', [userState.get(ws.data.uuid)?.room]);
+            console.log("sending prompt list: ", res);
+          } catch(err) {
+            console.log("Postgres error:", err);
+          }
+          ws.send(JSON.stringify({
+            action: "result",
+            payload: {
+              forAction: "get-prompts",
+              result: true,
+              msg: res?.rows
             } as WSResult
           } as WSMessage))
         } break;
@@ -192,7 +285,6 @@ Bun.serve({
     close(ws) {
       console.log(ws.data.uuid + " / " + userState.get(ws.data.uuid)?.username + " disconnected");
       userState.delete(ws.data.uuid);
-      
     }
   },
 });
