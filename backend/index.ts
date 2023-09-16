@@ -16,6 +16,7 @@ app.get('/', (req, res) => {
   res.send('Hello World!');
 })
 app.post('/webhook/:id', async (req, res) => {
+  console.log('webhook recieved');
   let promptBody;
   try {
     const sqlres = await client.query('SELECT * FROM saved_prompts WHERE uuid = $1', [req.params.id]);
@@ -30,7 +31,7 @@ app.post('/webhook/:id', async (req, res) => {
       messages: [{ role: 'user', content: mergedPrompt }],
       model: sqlres.rows[0].model,
     });
-    const response = await fetch("https://webhook.site/b8e3a683-2739-49d8-aff1-acd662e94c70", {
+    const response = await fetch("http://edu.applism.ca:3002", {
       method: "POST",
       body: JSON.stringify({ message: completion.choices[0].message.content }),
       headers: { "Content-Type": "application/json" },
