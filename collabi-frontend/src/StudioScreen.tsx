@@ -11,26 +11,26 @@ import { serverIP, loginState } from './state';
 
 export function StudioScreen() {
     const [usernameCursors, setUsernameCursors] = React.useState({});
-    const [promptBoxText, setPromptBoxText] = React.useState("");
+    const [promptBoxText, setPromptBoxText] = React.useState({
+      text: "",
+      lastChangeWasRemote: false,
+    });
+    const [remotePromptBoxText, setRemotePromptBoxText] = React.useState("");
     const [aiResponse, setAIResponse] = React.useState("");
     let ws = React.useRef<null | WebSocket>(null);
     const d = useWindowDimensions();
     const [loading, setLoading] = React.useState(false);
-  
-    const [assets, error] = useAssets([require('./cursor.png')]);
-  
+
+    // {"model": "gpt-3.5-turbo", "prompt": "hello!", "room": "1", "uuid": "ff64a208-0a53-40b4-8ead-a0afd5fe4706"}
+    const [savedPromptList, setSavedPromptList] = React.useState([{
+      model: "gpt-3.5-turbo",
+      prompt: "hello!",
+      room: "1",
+      uuid: "ff64a208-0a53-40b4-8ead-a0afd5fe4706",
+    }]);
   
     React.useEffect(() => {
-      ws.current?.send(JSON.stringify({
-        action: "broadcast",
-        payload: JSON.stringify({
-          baction: "prompt-box",
-          bpayload: {
-            username: loginState.username,
-            text: promptBoxText,
-            }
-          })
-        }));
+      
     }, [promptBoxText]);
   
     // Websocket ----------------------------------
@@ -60,6 +60,11 @@ export function StudioScreen() {
                   setAIResponse(msg.payload.msg);
                   setLoading(false);
                 } break;
+                case "get-saved-prompts": {
+                  console.log(msg.payload.msg);
+                  setSavedPromptList(msg.payload.msg);
+                  setLoading(false);
+                } break;
               } // forAction switch ----------------------------------
             } break; // result payload ----------------------------------
             case "broadcast": {
@@ -76,7 +81,12 @@ export function StudioScreen() {
                   }));
                 } break;
                 case "prompt-box": {
-                  setPromptBoxText(payload.bpayload.text);
+                  //if(payload.bpayload.username === loginState.username) return;
+                  setPromptBoxText({
+                    text: payload.bpayload.text,
+                    lastChangeWasRemote: true,
+                  });
+                  console.log("broad prompt box text changed" + payload.bpayload.username);
                 }
               } // baction switch ----------------------------------
             } break; // broadcast payload ----------------------------------
@@ -119,6 +129,18 @@ export function StudioScreen() {
       }}>
         <View style={{height: "100%", width: "25%"}}>
           <View style={{...styles.container}}>
+            <Button style={{
+              width: "90%",
+              margin: 10,
+            }} mode="contained" icon="refresh" onPress={() => {
+              ws.current?.send(JSON.stringify({
+                action: "get-saved-prompts",
+                payload: {}
+              }));
+              setLoading(true);
+            }}>
+              Refresh Prompt List
+            </Button>
             <Text>Prompt List</Text>
           </View>
         </View>
@@ -133,16 +155,28 @@ export function StudioScreen() {
               width: "50%",
               margin: 10,
               }} 
-              label="AI Prompt" value={promptBoxText}
-              onChange={(t) => {
-                console.log(t);
-
+              label="AI Prompt" value={promptBoxText.text}
+              onKeyPress={(e) => {
+                console.log("HELLO KEYPRESS ", e.nativeEvent);
+                ws.current?.send(JSON.stringify({
+                  action: "broadcast",
+                  payload: JSON.stringify({
+                    baction: "prompt-box",
+                    bpayload: {
+                      username: loginState.username,
+                      text: promptBoxText.text,
+                      }
+                    })
+                  }));
               }}
               onChangeText={(t) => {
-                  setPromptBoxText(t);
-                  
+                  setPromptBoxText({
+                    text: t,
+                    lastChangeWasRemote: false,
+                  }); 
               }}
               multiline={true}
+              autoComplete="off"
             />  
             <Button style={{
               width: "25%",
@@ -155,7 +189,7 @@ export function StudioScreen() {
                 action: "ai-complete",
                 payload: {
                   model: "gpt-3.5-turbo",
-                  prompt: promptBoxText,
+                  prompt: promptBoxText.text,
                 }
               }));
               setLoading(true);

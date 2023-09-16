@@ -140,8 +140,8 @@ export default function App() {
     <PaperProvider>
       <NavigationContainer>
           <Stack.Navigator initialRouteName="Login">
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="StudioScreen" component={StudioScreen}  />
+            <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Login' }} />
+            <Stack.Screen name="StudioScreen" component={StudioScreen} options={{ title: 'Collabi AI Studio' }}  />
           </Stack.Navigator>
         </NavigationContainer>
         <StatusBar style="auto" />
