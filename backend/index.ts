@@ -7,7 +7,6 @@ import { Client } from 'pg';
 import { APIResource } from 'openai/core.mjs';
 const client = new Client()
 await client.connect()
-
 import express from 'express'
 const app = express()
 const port = 3001
@@ -17,11 +16,27 @@ app.get('/', (req, res) => {
   res.send('Hello World!');
 })
 app.post('/webhook/:id', async (req, res) => {
+  let promptBody;
   try {
     const sqlres = await client.query('SELECT * FROM saved_prompts WHERE uuid = $1', [req.params.id]);
     console.log(req.params.id);
-    console.log(req.body.commits[0].modified);
+    console.log(req.body.commits[0].modified[0]);
+    const changedFile = await fetch(`https://raw.githubusercontent.com/espisesh-hacks/northhacking2023-penguin/main/${req.body.commits[0].modified[0]}`);
+    promptBody = await changedFile.text(); // HTML string
     res.send(sqlres.rows[0].prompt);
+    let mergedPrompt = sqlres.rows[0].prompt + "\n" + promptBody;
+    // console.log(mergedPrompt);
+    const completion = await openai.chat.completions.create({
+      messages: [{ role: 'user', content: mergedPrompt }],
+      model: sqlres.rows[0].model,
+    });
+    const response = await fetch("https://webhook.site/b8e3a683-2739-49d8-aff1-acd662e94c70", {
+      method: "POST",
+      body: JSON.stringify({ message: completion.choices[0].message.content }),
+      headers: { "Content-Type": "application/json" },
+  });
+  console.log(completion.choices[0].message.content);
+  const body = await response.json();
   } catch(err) {
     console.log("Postgres error:", err);
     res.send("Error finding prompt.");
@@ -231,13 +246,14 @@ Bun.serve({
           } catch(err) {
             console.log("Postgres error:", err);
           }
-        } catch { // AI Generation has failed :(
+        } catch(err) { // AI Generation has failed :(
+          console.log("AI Gen Error: ", err);
           ws.send(JSON.stringify({
             action: "result",
             payload: {
               forAction: "ai-complete",
               result: false,
-              msg: "AI Generation has failed."
+              msg: "AI Generation has failed. "  + JSON.stringify(err)
             } as WSResult
           }as WSMessage))
         }
