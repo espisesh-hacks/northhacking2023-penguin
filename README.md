@@ -76,4 +76,4 @@ rts, or feature requests, please submit an issue or open a pull request.
 
 ## License
 
-This project is licensed under the GNU AGPL License. See the [LICENSE](LICENSE) file for more decltails.
+This project is licensed under the GNU AGPL License. See the [LICENSE](LICENSE) file for more decltails..
