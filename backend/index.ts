@@ -173,6 +173,7 @@ Bun.serve({
         } break;
         case "ai-complete": {
           const payload : WSAiComplete = msg.payload;
+          try {
           const completion = await openai.chat.completions.create({
             messages: [{ role: 'user', content: payload.prompt }],
             model: payload.model,
@@ -196,13 +197,23 @@ Bun.serve({
           } catch(err) {
             console.log("Postgres error:", err);
           }
+        } catch { // AI Generation has failed :(
+          ws.send(JSON.stringify({
+            action: "result",
+            payload: {
+              forAction: "ai-complete",
+              result: false,
+              msg: "AI Generation has failed."
+            } as WSResult
+          }as WSMessage))
+        }
         } break;
         case "save-prompt": { // takes in a Prompt and Model, then returns the associated Database UUID
           const prompt = msg.payload.prompt;
           const model = msg.payload.model;
           const uuid = uuidv4();
           try {
-            const res = await client.query('INSERT INTO saved_prompt(prompt, model, room, uuid) VALUES($1, $2, $3, $4)', [prompt, model, userState.get(ws.data.uuid)?.room, uuid]);
+            const res = await client.query('INSERT INTO saved_prompts(prompt, model, room, uuid) VALUES($1, $2, $3, $4)', [prompt, model, userState.get(ws.data.uuid)?.room, uuid]);
             console.log('adding ', prompt, ' to', userState.get(ws.data.uuid)?.room);
           } catch(err) {
             console.log("Postgres error:", err);
@@ -217,7 +228,30 @@ Bun.serve({
           } as WSMessage))
         } break;
         case "delete-prompt": {
-          const uuid = msg.payload;
+          const uuid = msg.payload.uuid;
+          let res;
+          try {
+            res = await client.query('DELETE FROM saved_prompts WHERE uuid = $1', [uuid]);
+            console.log("deleting saved-prompt item: ", res);
+            ws.send(JSON.stringify({
+              action: "result",
+              payload: {
+                forAction: "delete-prompt",
+                result: true,
+                msg: "Deleted Prompt."
+              } as WSResult
+            } as WSMessage))
+          } catch(err) {
+            console.log("Postgres error:", err);
+            ws.send(JSON.stringify({
+              action: "result",
+              payload: {
+                forAction: "delete-prompt",
+                result: false,
+                msg: "Failed to delete Prompt."
+              } as WSResult
+            }as WSMessage))
+          }
         } break;
         case "get-saved-prompts": {
           let res;
