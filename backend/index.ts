@@ -14,9 +14,19 @@ const port = 3001
 // Webhook server for Github
 
 app.get('/', (req, res) => {
-  res.send('Hello World!')
+  res.send('Hello World!');
 })
-
+app.get('/webhook/:id', async (req, res) => {
+  try {
+    const sqlres = await client.query('SELECT * FROM saved_prompts WHERE uuid = $1', [req.params.id]);
+    console.log(req.params.id);
+    res.send(sqlres.rows[0].prompt);
+  } catch(err) {
+    console.log("Postgres error:", err);
+    res.send("Error finding prompt.");
+  }  
+  
+}) 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
