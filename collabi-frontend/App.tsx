@@ -1,16 +1,15 @@
 import * as React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View } from 'react-native';
-import { PaperProvider, TextInput, Appbar, Button, Dialog, Portal, Text} from 'react-native-paper';
+import { StyleSheet, View, useWindowDimensions, Image } from 'react-native';
+import { PaperProvider, TextInput, Appbar, Button, Dialog, Portal, Text, ProgressBar, MD3Colors, ActivityIndicator} from 'react-native-paper';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-let uuid = "";
-let loginState = {
-  username: "",
-  password: "",
-  room: "",
-}
-const serverIP = "10.33.134.188"
+// image assets expo
+import { useAssets } from 'expo-asset';
+
+import { loginState, serverIP } from './src/state';
+import { StudioScreen } from './src/StudioScreen';
+
 
 const Stack = createNativeStackNavigator();
 
@@ -114,9 +113,9 @@ function LoginScreen({navigation}) {
               if (msg.action === "result" && msg.payload.forAction === "login") {
                 if (msg.payload.result === true) {
                   console.log("Login success");
-                  uuid = msg.payload.msg;
+                  loginState.uuid = msg.payload.msg;
                   ws.close();
-                  console.log(uuid)
+                  console.log(loginState.uuid)
                   console.log("Closed connection (Login)")
                   navigation.navigate('StudioScreen');
                 } else {
@@ -136,102 +135,13 @@ function LoginScreen({navigation}) {
   );
 }
 
-/* ----------------- Studio Screen ----------------- */
-
-function StudioScreen() {
-  // store username cursors in state
-  const [usernameCursors, setUsernameCursors] = React.useState({});
-
-  let ws = null;
-  React.useEffect(() => {
-    ws = new WebSocket('ws://' + serverIP + ':3000');
-    ws.onopen = () => {
-      // connection opened
-      console.log("Connection pened (Studoio)");
-      ws.send(JSON.stringify({
-        action: "login",
-        payload: {
-          username: loginState.username,
-          password: loginState.password,
-          room: loginState.room,
-        }
-      }));
-      ws.onmessage = (e) => {
-        // a message was received
-        console.log(e.data);
-        const msg = JSON.parse(e.data);
-        switch(msg.action) {
-          case "result": {} break;
-          case "broadcast": {
-            console.log("Broadcast message received")
-            const payload = JSON.parse(msg.payload);
-            switch(payload.baction) {
-              case "pointer-move": {
-                setUsernameCursors(prev => ({...prev, [payload.bpayload.username]: 
-                  {
-                    x: payload.bpayload.x,
-                    y: payload.bpayload.y,
-                    username: payload.bpayload.username,
-                  }
-                }));
-              } break;
-            } break;
-          }
-        }
-
-      }
-      return () => {
-        ws.close();
-        console.log("Closed connection (Studio)")
-      }
-    };
-  }, []);
-  return (
-    <View style={{...styles.container}} onPointerMove={(evt) => {
-      try {
-        // random number to slow down pointer movement
-        //if (Math.random() > 0.5) return;
-        ws.send(JSON.stringify({
-          action: "broadcast",
-          payload: JSON.stringify({
-            baction: "pointer-move",
-            bpayload: {
-              username: loginState.username,
-              x: evt.nativeEvent.clientX,
-              y: evt.nativeEvent.clientY,
-            }
-          })
-        }));
-      } catch (e) {
-        console.log(e);
-      }
-    }}>
-      <Text>Details Screen</Text>
-      {Object.values(usernameCursors).map((cursor: any) => {
-        console.log("item", cursor);
-        return (
-          <Text key={cursor.username} style={{
-            position: "absolute",
-            left: cursor.x,
-            top: cursor.y,
-            fontSize: 20,
-            fontWeight: "bold",
-          }}>{cursor.username}</Text>
-        );
-      })}
-  
-
-    </View>
-  );
-}
-
 export default function App() {
   return (
     <PaperProvider>
       <NavigationContainer>
           <Stack.Navigator initialRouteName="Login">
             <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="StudioScreen" component={StudioScreen} />
+            <Stack.Screen name="StudioScreen" component={StudioScreen}  />
           </Stack.Navigator>
         </NavigationContainer>
         <StatusBar style="auto" />
