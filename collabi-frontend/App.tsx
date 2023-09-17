@@ -62,7 +62,7 @@ function LoginScreen({navigation}) {
           width: "50%",
           margin: 10,
         }} label="Room" value={room} onChangeText={text => setRoom(text)} />
-        <View style={{
+        {/*<View style={{
           flexDirection: "row",
           width: "100%",
           justifyContent: "center",
@@ -87,7 +87,7 @@ function LoginScreen({navigation}) {
           }}>
             Debug B
           </Button>
-        </View>
+        </View>*/}
 
 
         <Button style={{
@@ -130,6 +130,13 @@ function LoginScreen({navigation}) {
           };
         }}>
           Login
+        </Button>
+        <Button style={{
+          width: "50%",
+          margin: 10,
+        }} mode="contained" onPress={() => {
+        }}>
+          Register
         </Button>
       </View>
   );
