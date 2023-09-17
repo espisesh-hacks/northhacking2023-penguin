@@ -1,3 +1,5 @@
+Hello Hack the north Judges!
+
 > The Following ReadMe was created with help of GPT-3 using Collabi AI Studio
 # Collabi AI Studio
 
