@@ -184,7 +184,7 @@ export function StudioScreen() {
       onPointerMove={(evt) => {
         try {
           if(!ws.current) return;
-          if(cursorFrameSkip != 5) {
+          if(cursorFrameSkip != 3) {
             setCursorFrameSkip(cursorFrameSkip + 1);
             return;
           }
