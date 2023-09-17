@@ -1,20 +1,59 @@
 import * as React from 'react';
 import { StyleSheet, View, useWindowDimensions, Image, ScrollView, FlatList } from 'react-native';
 import { TextInput, Button, Dialog, Portal, Text, ActivityIndicator} from 'react-native-paper';
-
-// image assets expo
-import { useAssets } from 'expo-asset';
+import Animated, {
+  useSharedValue,
+  withTiming,
+  useAnimatedStyle,
+  Easing,
+  FadeIn
+} from 'react-native-reanimated';
 
 import { serverIP, loginState } from './state';
+
+// renders a JSX element for a cursor
+export function Cursor(props: any) {
+  /*const x = useSharedValue(props.x);
+  const y = useSharedValue(props.y);
+
+  const moveCursorStyle = useAnimatedStyle(() => {
+    return {
+      position: "absolute",
+      left: x.value * props.d.height,
+      top: y.value * props.d.height,
+    }
+  }, [x, y]);*/
+  /*
+  ,*/
+  return (
+    <Animated.View  style={{
+      position: "absolute",
+      // percentage of screen
+      left: props.x * props.d.width,
+      top: props.y * props.d.height,
+      
+    }} entering={FadeIn}>
+      <Image source={require('./cursor.png')} style={{
+        width: 20,
+        height: 20,
+      }} />
+      <Text style={{
+        position: "absolute",
+        top: 20,
+        left: 10,
+        fontSize: 10,
+        fontWeight: "bold",
+        width: 100,
+      }}>{props.username}</Text>
+    </Animated.View>
+  );
+}
 
 /* ----------------- Studio Screen ----------------- */
 
 export function StudioScreen() {
     const [usernameCursors, setUsernameCursors] = React.useState({});
-    const [promptBoxText, setPromptBoxText] = React.useState({
-      text: "",
-      lastChangeWasRemote: false,
-    });
+    const [promptBoxText, setPromptBoxText] = React.useState("");
     const [remotePromptBoxText, setRemotePromptBoxText] = React.useState("");
     const [aiResponse, setAIResponse] = React.useState("");
     let ws = React.useRef<null | WebSocket>(null);
@@ -24,14 +63,18 @@ export function StudioScreen() {
     // {"model": "gpt-3.5-turbo", "prompt": "hello!", "room": "1", "uuid": "ff64a208-0a53-40b4-8ead-a0afd5fe4706"}
     const [savedPromptList, setSavedPromptList] = React.useState([{
       model: "gpt-3.5-turbo",
-      prompt: "hello!",
+      prompt: "Loading...",
       room: "1",
       uuid: "ff64a208-0a53-40b4-8ead-a0afd5fe4706",
     }]);
-  
-    React.useEffect(() => {
-      
-    }, [promptBoxText]);
+
+    const [cursorFrameSkip, setCursorFrameSkip] = React.useState(0);
+    // Dialog
+    const [visible, setVisible] = React.useState(false);
+    const showDialog = () => setVisible(true);
+    const hideDialog = () => setVisible(false);
+
+    const [selectedUUID, setSelectedUUID] = React.useState("");
   
     // Websocket ----------------------------------
     React.useEffect(() => {
@@ -56,6 +99,18 @@ export function StudioScreen() {
             case "result": {
               console.log("Result message received")
               switch(msg.payload.forAction) {
+                case "login": {
+                  if(msg.payload.result === true) {
+                    console.log("Login success");
+                    ws.current?.send(JSON.stringify({
+                      action: "get-saved-prompts",
+                      payload: {}
+                    }));
+                    setLoading(true);
+                  } else {
+                    console.log("Login failed");
+                  }
+                } break;
                 case "ai-complete": {
                   setAIResponse(msg.payload.msg);
                   setLoading(false);
@@ -67,8 +122,22 @@ export function StudioScreen() {
                 } break;
                 case "save-prompt": {
                   console.log(msg.payload.msg);
+                  ws.current?.send(JSON.stringify({
+                    action: "get-saved-prompts",
+                    payload: {}
+                  }));
                   setTimeout(() => {
-                    setLoading(false);
+                    //setLoading(false);
+                  }, 500);
+                } break;
+                case "delete-prompt": {
+                  console.log(msg.payload.msg);
+                  ws.current?.send(JSON.stringify({
+                    action: "get-saved-prompts",
+                    payload: {}
+                  }));
+                  setTimeout(() => {
+                    //setLoading(false);
                   }, 500);
                 } break;
               } // forAction switch ----------------------------------
@@ -88,10 +157,7 @@ export function StudioScreen() {
                 } break;
                 case "prompt-box": {
                   //if(payload.bpayload.username === loginState.username) return;
-                  setPromptBoxText({
-                    text: payload.bpayload.text,
-                    lastChangeWasRemote: true,
-                  });
+                  setPromptBoxText(payload.bpayload.text);
                   console.log("broad prompt box text changed" + payload.bpayload.username);
                 }
               } // baction switch ----------------------------------
@@ -118,6 +184,11 @@ export function StudioScreen() {
       onPointerMove={(evt) => {
         try {
           if(!ws.current) return;
+          if(cursorFrameSkip != 5) {
+            setCursorFrameSkip(cursorFrameSkip + 1);
+            return;
+          }
+          setCursorFrameSkip(0);
           ws.current.send(JSON.stringify({
             action: "broadcast",
             payload: JSON.stringify({
@@ -133,11 +204,13 @@ export function StudioScreen() {
           console.log(e);
         }
       }}>
-        <View style={{height: "100%", width: "25%"}}>
-          <View style={{...styles.container, width: "100%"}}>
+        <View style={{height: "100%", width: "30%"}}>
+          <View style={{...styles.container, width: "99%"}}>
             <Button style={{
               width: "90%",
-              margin: 10,
+              marginLeft: 10,
+              marginTop: 10,
+              marginRight: -10
             }} mode="contained" icon="refresh" onPress={() => {
               ws.current?.send(JSON.stringify({
                 action: "get-saved-prompts",
@@ -157,33 +230,65 @@ export function StudioScreen() {
               renderItem={({item}) => {
                 return (
                   <View style={{
-                    flexDirection: "row",
-                    width: "100%",
-                    margin: 10,
-                    borderWidth: 1,
+                    borderWidth: 2,
+                    borderColor: "black",
+                    borderRadius: 8,
+                    marginLeft: 10,
+                    marginRight: 10,
+                    padding: 10, 
                   }}>
                     <Text style={{
                       fontSize: 20,
                       fontWeight: "bold",
+                      textAlign: "center",
                     }}>{item.prompt}</Text>
-                    <Button style={{
+                    <View style={{
+                      flexDirection: "row",
                       justifyContent: "center",
-                      margin: 10,
-                      alignContent: "center",
-                      height: "50%",
-                    }} mode="outlined" onPress={() => {
-                      ws.current?.send(JSON.stringify({
-                        action: "",
-                        payload: {
-                          uuid: item.uuid,
-                        }
-                      }));
-                    }} icon={"send"}>
-                      Delete
+                     
+                    }}>
+                      <Button style={{
+                        marginRight: 10
+                      }} mode="outlined" onPress={() => {
+                        setLoading(true);
+                        setTimeout(() => {
+                          setPromptBoxText(item.prompt);
+                          setAIResponse("");
+                          setLoading(false);
+                        }, 250);
+                      }} icon={"upload"}>
+                        Load
+                      </Button>
+                      <View style={{  height: 10, }}></View>
+                      <Button style={{
+                      }} mode="outlined" onPress={() => {
+                        ws.current?.send(JSON.stringify({
+                          action: "delete-prompt",
+                          payload: {
+                            uuid: item.uuid,
+                          }
+                        }));
+                        setLoading(true);
+                      }} icon={"delete"}>
+                        Delete
+                      </Button>
+                    </View>
+                    <View style={{ height: 10, }}></View>
+                    <Button style={{
+                      }} mode="outlined" onPress={() => { 
+                        setLoading(true);
+                        setTimeout(() => {
+                          setSelectedUUID(item.uuid);
+                          showDialog();
+                          setLoading(false);
+                        }, 250);
+                      }} icon={"web"}>
+                        Webhook Settings
                     </Button>
+                    
                   </View>
                 );
-              }} ></FlatList>
+              }} ItemSeparatorComponent={() => <View style={{height: 10}} />} ></FlatList>
           </View>
         </View>
         <View style={{...styles.container, height: "100%"}}>
@@ -198,25 +303,21 @@ export function StudioScreen() {
               width: "50%",
               margin: 10,
               }} 
-              label="AI Prompt" value={promptBoxText.text}
-              onKeyPress={(e) => {
-                console.log("HELLO KEYPRESS ", e.nativeEvent);
-                ws.current?.send(JSON.stringify({
-                  action: "broadcast",
-                  payload: JSON.stringify({
-                    baction: "prompt-box",
-                    bpayload: {
-                      username: loginState.username,
-                      text: promptBoxText.text,
-                      }
-                    })
-                  }));
-              }}
-              onChangeText={(t) => {
-                  setPromptBoxText({
-                    text: t,
-                    lastChangeWasRemote: false,
-                  }); 
+              label="AI Prompt" value={promptBoxText}
+              onChangeText={async (t) => {
+                  await setPromptBoxText(t); 
+                  setTimeout(() => {
+                    ws.current?.send(JSON.stringify({
+                      action: "broadcast",
+                      payload: JSON.stringify({
+                        baction: "prompt-box",
+                        bpayload: {
+                          username: loginState.username,
+                          text: promptBoxText,
+                          }
+                        })
+                      }));
+                  }, 100);
               }}
               //multiline={true}
               autoComplete="off"
@@ -237,7 +338,7 @@ export function StudioScreen() {
                   action: "ai-complete",
                   payload: {
                     model: "gpt-3.5-turbo",
-                    prompt: promptBoxText.text,
+                    prompt: promptBoxText,
                   }
                 }));
                 setLoading(true);
@@ -256,7 +357,7 @@ export function StudioScreen() {
                   action: "save-prompt",
                   payload: {
                     model: "gpt-3.5-turbo",
-                    prompt: promptBoxText.text,
+                    prompt: promptBoxText,
                   }
                 }));
                 setLoading(true);
@@ -294,31 +395,33 @@ export function StudioScreen() {
           </ScrollView>
           {Object.values(usernameCursors).map((cursor: any) => {
             return (
-              <View key={cursor.username} style={{
-                position: "absolute",
-                // percentage of screen
-                left: cursor.x * d.width,
-                top: cursor.y * d.height,
-                
-              }}>
-                <Image source={require('./cursor.png')} style={{
-                  width: 20,
-                  height: 20,
-                }} />
-                <Text style={{
-                  position: "absolute",
-                  top: 20,
-                  left: 10,
-                  fontSize: 10,
-                  fontWeight: "bold",
-                  width: 100,
-                }}>{cursor.username}</Text>
-              </View>
+              <Cursor x={cursor.x} y={cursor.y} d={d} username={cursor.username} key={cursor.username} />
             );
           })}
       
     
         </View>
+        <Portal>
+         <Dialog visible={visible} onDismiss={hideDialog} >
+            <Dialog.Title>Webhook Settings</Dialog.Title>
+            <Dialog.Content>
+              <Text variant="bodyMedium">Collabi Webhook URL</Text>
+              <TextInput style={{
+                width: "100%",
+                margin: 10,
+              }} disabled label="URL" value={"https://collabi.tech/webhook/" + selectedUUID} />
+              <Text variant="bodyMedium">Next Pipeline Webhook URL</Text>
+              <TextInput style={{
+                width: "100%",
+                margin: 10,
+              }} label="URL" value={"https://applism.ca/webhook/" + "abc123"} />
+            </Dialog.Content>
+            <Dialog.Actions>
+              <Button onPress={hideDialog}>Save</Button>
+            </Dialog.Actions>
+          </Dialog>
+          
+        </Portal>
       </View>
     );
   }
