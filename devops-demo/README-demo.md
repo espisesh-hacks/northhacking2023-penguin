@@ -12,9 +12,6 @@ Collabi AI Studio is a collaborative platform designed to enhance brainstorming 
                                                                                                                         
 ## How to Use
 
-### Prerequisites
-- [Bun](https://bun.sh)
-- Expo
 ### Installation
 ```bash
 bun run index.ts
