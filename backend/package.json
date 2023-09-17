@@ -9,6 +9,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@topcli/spinner": "^2.1.2",
     "@types/express": "^4.17.17",
     "@types/pg": "^8.10.2",
     "@types/uuid": "^9.0.4",

@@ -9,6 +9,8 @@ await client.connect();
 import express from 'express';
 const app = express();
 const port = 3001;
+import * as timers from "node:timers/promises";
+import { Spinner } from "@topcli/spinner";
 // Webhook server for Github
 app.use(express.json());
 app.get('/', (req, res) => {
@@ -20,16 +22,18 @@ app.post('/webhook/:id', async (req, res) => {
   try {
     const sqlres = await client.query('SELECT * FROM saved_prompts WHERE uuid = $1', [req.params.id]);
     console.log(req.params.id);
-    console.log(req.body.commits[0].modified[0]);
     const changedFile = await fetch(`https://raw.githubusercontent.com/espisesh-hacks/northhacking2023-penguin/main/${req.body.commits[0].modified[0]}`);
     promptBody = await changedFile.text(); // HTML string
     res.send(sqlres.rows[0].prompt);
+    console.log(req.body.commits[0].modified[0], " Changed! Running through Prompt: ", sqlres.rows[0].prompt);
     let mergedPrompt = sqlres.rows[0].prompt + "\n" + promptBody;
     // console.log(mergedPrompt);
+    const spinner = new Spinner({ name: "bouncingBar" }).start("Waiting for OpenAI Response");
     const completion = await openai.chat.completions.create({
       messages: [{ role: 'user', content: mergedPrompt }],
       model: sqlres.rows[0].model,
     });
+    spinner.succeed("Got OpenAI Response!");
     const response = await fetch("http://edu.applism.ca:3002", {
       method: "POST",
       body: JSON.stringify({ message: completion.choices[0].message.content }),
