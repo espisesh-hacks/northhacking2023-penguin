@@ -35,4 +35,4 @@ bun run index.ts
 
 ## License
 
-This project is licensed under the GNU AGPL License. See the [LICENSE](LICENSE) file for more details.
+This project is licensed under the GNU AGPL License. See the [LICENSE](LICENSE) file for more details..
