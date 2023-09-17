@@ -58,7 +58,7 @@ bun run index.ts
 
 ## Technologies Used
 
-- Node.js
+- Bun JS
 - Express.js
 - CockroachDB
 - Expo
