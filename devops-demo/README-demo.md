@@ -2,7 +2,7 @@
 # Collabi AI Studio
 
 Collabi AI Studio is a collaborative platform designed to enhance brainstorming and prompt sharing among users. Built during Hack The North 2023, this application allows users to work on LLM (Language Model) prompts together in real-time. Additionally, it enables users to insert the developed prompts seamlessly into a DevOps pipeline using webhooks.
-                                                                                                                        
+
 ![Collabi AI Studio Screenshot](screenshot.png)
 ## Features
 - **Real-time Collaboration**: Multiple users can simultaneously work on LLM prompts, making brainstorming more efficient and engaging.
