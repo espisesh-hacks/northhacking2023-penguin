@@ -5,11 +5,11 @@ import OpenAI from 'openai';
 const openai = new OpenAI({});
 import { Client } from 'pg';
 import { APIResource } from 'openai/core.mjs';
-const client = new Client()
-await client.connect()
-import express from 'express'
-const app = express()
-const port = 3001
+const client = new Client();
+await client.connect();
+import express from 'express';
+const app = express();
+const port = 3001;
 // Webhook server for Github
 app.use(express.json());
 app.get('/', (req, res) => {
