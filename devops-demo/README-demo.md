@@ -16,14 +16,6 @@ Collabi AI Studio is a collaborative platform designed to enhance brainstorming 
 - [Bun](https://bun.sh)
 - Expo
 ### Installation
-1. Clone the repository.
-```bash
-git clone https://github.com/espisesh-hacks/northhacking2023-penguin.git
-```
-2. Install required dependencies.
-
-3. Create a `.env` file at the root of the project directory and add the following environment variables:
-4. Start the server.
 ```bash
 bun run index.ts
 ```
